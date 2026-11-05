@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Leitor de Quadrinhos por Toque</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #f4f4f4;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow: hidden; /* Evita qualquer rolagem indesejada */
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        /* Barra Superior Flutuante */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background-color: rgba(18, 18, 18, 0.9);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            z-index: 1000;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease;
+        }
+
+        header.hidden {
+            transform: translateY(-100%);
+        }
+
+        h1 {
+            font-size: 15px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .page-counter {
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        button {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 4px;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        button:active {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Container do Leitor em Tela Cheia */
+        .reader-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .comic-page {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* Mantém a proporção da imagem na tela */
+            display: none; /* Esconde todas por padrão, o JS controla qual aparece */
+        }
+
+        .comic-page.active {
+            display: block;
+        }
+
+        /* Zonas de Toque invisíveis para navegação */
+        .touch-zone {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 35%; /* 35% da tela para cada lado (esquerda e direita) */
+            z-index: 10;
+        }
+
+        .touch-left { left: 0; }
+        .touch-right { right: 0; }
+
+        /* Dica flutuante inicial */
+        .tap-hint {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: #ccc;
+            font-size: 11px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            pointer-events: none;
+            opacity: 0.9;
+            transition: opacity 0.5s;
+            z-index: 1001;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Cabeçalho -->
+    <header id="main-header">
+        <h1>Grupo Socorrista Francisco de Assis</h1>
+        <div class="actions">
+            <span class="page-counter" id="counter">1 / 4</span>
+            <!--<button onclick="toggleTheme()">Tema</button>-->
+        </div>
+    </header>
+
+    <!-- Leitor -->
+    <div class="reader-container" id="reader">
+        <!-- Zonas de toque laterais -->
+        <div class="touch-zone touch-left" onclick="prevPage(event)"></div>
+        <div class="touch-zone touch-right" onclick="nextPage(event)"></div>
+
+        <!-- Imagens do Quadrinho (Adicione quantas quiser aqui) -->
+        <img class="comic-page active" src="https://via.placeholder.com/600x900/222/fff?text=Pagina+01" alt="Página 1">
+        <img class="comic-page" src="https://via.placeholder.com/600x900/333/fff?text=Pagina+02" alt="Página 2">
+        <img class="comic-page" src="https://via.placeholder.com/600x900/444/fff?text=Pagina+03" alt="Página 3">
+        <img class="comic-page" src="https://via.placeholder.com/600x900/555/fff?text=Pagina+04" alt="Página 4">
+    </div>
+
+    <div class="tap-hint" id="hint">Toque nas bordas para mudar de página</div>
+
+    <script>
+        const pages = document.querySelectorAll('.comic-page');
+        const counter = document.getElementById('counter');
+        const header = document.getElementById('main-header');
+        const hint = document.getElementById('hint');
+        let currentIndex = 0;
+        let isHeaderHidden = false;
+
+        function updateReader() {
+            pages.forEach((page, index) => {
+                if (index === currentIndex) {
+                    page.classList.add('active');
+                } else {
+                    page.classList.remove('active');
+                }
+            });
+            counter.textContent = `${currentIndex + 1} / ${pages.length}`;
+        }
+
+        function nextPage(e) {
+            e.stopPropagation();
+            if (currentIndex < pages.length - 1) {
+                currentIndex++;
+                updateReader();
+            }
+        }
+
+        function prevPage(e) {
+            e.stopPropagation();
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateReader();
+            }
+        }
+
+        // Toque no meio da tela (fora das zonas laterais) esconde/mostra o menu
+        document.getElementById('reader').addEventListener('click', (e) => {
+            // Se clicou exatamente nas zonas laterais, ignora para não conflitar
+            if (e.target.classList.contains('touch-zone')) return;
+
+            isHeaderHidden = !isHeaderHidden;
+            if (isHeaderHidden) {
+                header.classList.add('hidden');
+                hint.style.opacity = '0';
+            } else {
+                header.classList.remove('hidden');
+                hint.style.opacity = '0.9';
+            }
+        });
+
+        // Alternar tema claro/escuro
+        //let isDark = true;
+        //function toggleTheme() {
+        //    isDark = !isDark;
+        //    document.body.style.backgroundColor = isDark ? '#121212' : '#f4f4f4';
+        //}
+    </script>
+</body>
+</html>
